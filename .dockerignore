@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Docker
+.docker
+Dockerfile
+docker-compose.yml
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+mycliai
+
+# Testing
+*.test
+*.out
+
+# Debug files
+debug
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.db
+.env
+*.log
+/dist
+/build
+.mycliai/
+
+# Go binary and test files
+__debug_bin
+coverage.txt
+
+# Dependencies
+/vendor/
