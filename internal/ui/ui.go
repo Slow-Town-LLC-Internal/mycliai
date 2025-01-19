@@ -16,7 +16,7 @@ type UI struct {
     loading   bool
     renderer  *glamour.TermRenderer
     width     int
-    ready     bool  // Add ready state
+    ready     bool
 }
 
 type Message struct {
@@ -48,17 +48,17 @@ func New(aiClient ai.Client) *UI {
 func (ui *UI) Start() error {
     p := tea.NewProgram(
         ui,
-        tea.WithAltScreen(),
-        tea.WithMouseCellMotion(),
+        tea.WithAltScreen(),      // Use alternate screen buffer
+        tea.WithMouseCellMotion(), // Enable mouse support
+        tea.WithInputTTY(),        // Ensure proper TTY input handling
     )
     _, err := p.Run()
     return err
 }
 
-// Initialize the UI with proper screen setup
 func (ui *UI) Init() tea.Cmd {
-    return tea.Batch(
+    return tea.Sequence(
         tea.EnterAltScreen,
-        tea.HideCursor,
+        tea.ClearScreen,
     )
 }
