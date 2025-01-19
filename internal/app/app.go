@@ -14,15 +14,16 @@ type App struct {
 }
 
 func New(cfg *Config, db db.Database) *App {
+    aiClient := ai.NewGeminiClient(cfg.APIKey)
     return &App{
         config: cfg,
         db:     db,
-        ai:     ai.NewGeminiClient(cfg.APIKey),
-        ui:     ui.New(),
+        ai:     aiClient,
+        ui:     ui.New(aiClient),
     }
 }
 
 func (a *App) Run() error {
-    // Initialize UI and start event loop
+    defer a.ai.Close()
     return a.ui.Start()
 }
