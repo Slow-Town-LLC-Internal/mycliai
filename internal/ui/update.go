@@ -4,11 +4,11 @@ import (
     "github.com/charmbracelet/bubbles/spinner"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/glamour"
+    "strings"
 )
 
 func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     if !ui.ready {
-        // Handle first update differently to avoid initial lag
         if _, ok := msg.(tea.WindowSizeMsg); ok {
             ui.ready = true
         }
@@ -23,21 +23,26 @@ func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case AIResponseMsg:
         return ui.handleAIResponse(msg)
     case spinner.TickMsg:
-        return ui.handleSpinnerTick(msg)
+        if ui.loading {
+            var spinCmd tea.Cmd
+            ui.spinner, spinCmd = ui.spinner.Update(msg)
+            return ui, spinCmd
+        }
     }
 
     return ui, nil
 }
 
 func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+    // Quick exit for loading state
     if ui.loading {
-        // Only handle Ctrl+C when loading
         if msg.Type == tea.KeyCtrlC {
             return ui, tea.Quit
         }
         return ui, nil
     }
 
+    // Handle special keys first for immediate feedback
     switch msg.Type {
     case tea.KeyCtrlC:
         return ui, tea.Quit
@@ -55,6 +60,7 @@ func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
         
     case tea.KeySpace:
         ui.input += " "
+        return ui, tea.Batch() // Force immediate update
         
     case tea.KeyBackspace, tea.KeyDelete:
         if len(ui.input) > 0 {
@@ -65,14 +71,9 @@ func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
         if ui.input != "" {
             ui.input = ""
         }
-        
-    case tea.KeyCtrlV: // Handle paste explicitly
-        return ui, nil
-        
-    default:
-        if msg.Type == tea.KeyRunes {
-            ui.input += string(msg.Runes)
-        }
+
+    case tea.KeyRunes:
+        ui.input += string(msg.Runes)
     }
 
     return ui, nil
@@ -92,15 +93,14 @@ func (ui *UI) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 
 func (ui *UI) handleAIResponse(msg AIResponseMsg) (tea.Model, tea.Cmd) {
     ui.loading = false
-    ui.messages = append(ui.messages, Message{Role: "assistant", Content: string(msg)})
-    return ui, nil
-}
-
-func (ui *UI) handleSpinnerTick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
-    if ui.loading {
-        var spinCmd tea.Cmd
-        ui.spinner, spinCmd = ui.spinner.Update(msg)
-        return ui, spinCmd
+    
+    response := string(msg)
+    if strings.Contains(response, "FinishReasonSafety") {
+        response = "I apologize, but I cannot generate that content due to safety filters. Please try rephrasing your request."
+    } else if strings.Contains(response, "Error:") {
+        response = "An error occurred while processing your request. Please try again."
     }
+    
+    ui.messages = append(ui.messages, Message{Role: "assistant", Content: response})
     return ui, nil
 }

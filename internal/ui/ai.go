@@ -3,6 +3,7 @@ package ui
 import (
     "context"
     "fmt"
+    "strings"
     tea "github.com/charmbracelet/bubbletea"
     "mycliai/internal/ai"
 )
@@ -17,8 +18,18 @@ func (ui *UI) getAIResponse() tea.Msg {
     }})
     
     if err != nil {
+        if isSafetyError(err) {
+            return AIResponseMsg("Error: blocked: candidate: FinishReasonSafety")
+        }
         return AIResponseMsg(fmt.Sprintf("Error: %v", err))
     }
     
     return AIResponseMsg(response)
+}
+
+func isSafetyError(err error) bool {
+    return err != nil && (
+        strings.Contains(err.Error(), "safety") ||
+        strings.Contains(err.Error(), "blocked") ||
+        strings.Contains(err.Error(), "FinishReason"))
 }
