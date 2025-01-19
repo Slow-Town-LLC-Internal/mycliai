@@ -1,35 +1,60 @@
 package ui
 
 import (
+    "github.com/charmbracelet/bubbles/spinner"
     tea "github.com/charmbracelet/bubbletea"
+    "github.com/charmbracelet/glamour"
+    "mycliai/internal/ai"
 )
 
-type UI struct{}
-
-func New() *UI {
-    return &UI{}
+type UI struct {
+    input     string
+    cursor    bool
+    messages  []Message
+    aiClient  ai.Client
+    spinner   spinner.Model
+    loading   bool
+    renderer  *glamour.TermRenderer
+    width     int
 }
 
-func (ui *UI) Init() tea.Cmd {
-    return nil
+type Message struct {
+    Role    string
+    Content string
 }
 
-func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        if msg.Type == tea.KeyCtrlC {
-            return ui, tea.Quit
-        }
+func New(aiClient ai.Client) *UI {
+    s := spinner.New()
+    s.Spinner = spinner.Dot
+    s.Style = Styles.Spinner
+
+    renderer, _ := glamour.NewTermRenderer(
+        glamour.WithAutoStyle(),
+        glamour.WithWordWrap(0), // Will be set dynamically based on terminal width
+    )
+
+    return &UI{
+        aiClient:  aiClient,
+        spinner:   s,
+        renderer:  renderer,
+        messages:  []Message{{Role: "system", Content: "Welcome to MyCliAI!\nAsk me to write a haiku or anything else!\n"}},
+        cursor:    true,
+        width:     80, // Default width
     }
-    return ui, nil
-}
-
-func (ui *UI) View() string {
-    return "Welcome to MyCliAI!\nPress Ctrl+C to quit\n"
 }
 
 func (ui *UI) Start() error {
-    program := tea.NewProgram(ui)
-    _, err := program.Run()
+    p := tea.NewProgram(
+        ui,
+        tea.WithAltScreen(),
+    )
+    _, err := p.Run()
     return err
+}
+
+func (ui *UI) Init() tea.Cmd {
+    return tea.Batch(
+        ui.spinner.Tick,
+        tea.EnterAltScreen,
+    )
 }
