@@ -7,24 +7,43 @@ import (
 
 func (ui *UI) View() string {
     var sb strings.Builder
+    contentWidth := ui.width
+    if contentWidth == 0 {
+        contentWidth = 80 // fallback width
+    }
 
     // Render messages with proper wrapping
     for _, msg := range ui.messages {
         switch msg.Role {
         case "user":
             prefix := Styles.You.Render("You: ")
-            wrapped := wordwrap.String(msg.Content, ui.width-len([]rune(prefix)))
-            sb.WriteString(prefix + wrapped + "\n")
+            wrapped := wordwrap.String(msg.Content, contentWidth-len([]rune(prefix))-1)
+            lines := strings.Split(wrapped, "\n")
+            for i, line := range lines {
+                if i == 0 {
+                    sb.WriteString(prefix + line + "\n")
+                } else {
+                    sb.WriteString(strings.Repeat(" ", len([]rune(prefix))) + line + "\n")
+                }
+            }
         case "assistant":
             prefix := Styles.AI.Render("AI: ")
             rendered, err := ui.renderer.Render(msg.Content)
             if err != nil {
-                rendered = wordwrap.String(msg.Content, ui.width-len([]rune(prefix)))
+                rendered = wordwrap.String(msg.Content, contentWidth-len([]rune(prefix))-1)
             }
-            sb.WriteString(prefix + rendered + "\n")
+            rendered = strings.TrimSpace(rendered) // Remove extra newlines from glamour
+            lines := strings.Split(rendered, "\n")
+            for i, line := range lines {
+                if i == 0 {
+                    sb.WriteString(prefix + line + "\n")
+                } else {
+                    sb.WriteString(strings.Repeat(" ", len([]rune(prefix))) + line + "\n")
+                }
+            }
         default:
-            wrapped := wordwrap.String(msg.Content, ui.width)
-            sb.WriteString(wrapped)
+            wrapped := wordwrap.String(msg.Content, contentWidth-2)
+            sb.WriteString(wrapped + "\n")
         }
     }
 
@@ -36,16 +55,28 @@ func (ui *UI) View() string {
 
     // Input prompt with cursor
     prompt := "> "
-    inputWidth := ui.width - len(prompt)
+    inputWidth := contentWidth - len(prompt) - 1
+    if inputWidth < 0 {
+        inputWidth = 0
+    }
     wrapped := wordwrap.String(ui.input, inputWidth)
+    lines := strings.Split(wrapped, "\n")
     
-    sb.WriteString("\n" + prompt + wrapped)
-    if ui.cursor {
-        sb.WriteString("█")
+    sb.WriteString("\n")
+    for i, line := range lines {
+        if i == 0 {
+            sb.WriteString(prompt + line)
+            if !ui.loading && ui.cursor && len(lines) == 1 {
+                sb.WriteString("█")
+            }
+            sb.WriteString("\n")
+        } else {
+            sb.WriteString(strings.Repeat(" ", len(prompt)) + line + "\n")
+        }
     }
     
-    sb.WriteString("\n\n")
-    sb.WriteString(Styles.Subtle.Render("Press Ctrl+C to quit"))
+    sb.WriteString("\n")
+    sb.WriteString(Styles.Subtle.Render("Press Ctrl+D to quit"))
 
     return sb.String()
 }
