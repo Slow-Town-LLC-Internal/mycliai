@@ -19,3 +19,6 @@ type Database interface {
     CreateSession(ctx context.Context) (int64, error)
     Close() error
 }
+
+// Compile-time interface check
+var _ Database = (*SQLiteDB)(nil)
