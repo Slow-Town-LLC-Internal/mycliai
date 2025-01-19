@@ -7,7 +7,13 @@ import (
 )
 
 func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    var cmd tea.Cmd
+    if !ui.ready {
+        // Handle first update differently to avoid initial lag
+        if _, ok := msg.(tea.WindowSizeMsg); ok {
+            ui.ready = true
+        }
+        return ui, nil
+    }
 
     switch msg := msg.(type) {
     case tea.KeyMsg:
@@ -20,12 +26,12 @@ func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         return ui.handleSpinnerTick(msg)
     }
 
-    return ui, cmd
+    return ui, nil
 }
 
 func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
     if ui.loading {
-        // Only process control characters when loading
+        // Only handle Ctrl+C when loading
         if msg.Type == tea.KeyCtrlC {
             return ui, tea.Quit
         }
@@ -35,6 +41,7 @@ func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
     switch msg.Type {
     case tea.KeyCtrlC:
         return ui, tea.Quit
+        
     case tea.KeyEnter:
         if ui.input != "" {
             ui.loading = true
@@ -45,19 +52,26 @@ func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
                 ui.getAIResponse,
             )
         }
+        
+    case tea.KeySpace:
+        ui.input += " "
+        
     case tea.KeyBackspace, tea.KeyDelete:
         if len(ui.input) > 0 {
             ui.input = ui.input[:len(ui.input)-1]
         }
-    case tea.KeySpace:
-        ui.input += " "
+        
+    case tea.KeyEsc:
+        if ui.input != "" {
+            ui.input = ""
+        }
+        
+    case tea.KeyCtrlV: // Handle paste explicitly
+        return ui, nil
+        
     default:
-        // Only add printable ASCII characters
-        if len(msg.Runes) > 0 {
-            r := msg.Runes[0]
-            if r >= 32 && r <= 126 { // ASCII printable range
-                ui.input += string(r)
-            }
+        if msg.Type == tea.KeyRunes {
+            ui.input += string(msg.Runes)
         }
     }
 
@@ -65,11 +79,13 @@ func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (ui *UI) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+    if !ui.ready {
+        ui.ready = true
+    }
     ui.width = msg.Width
-    // Update glamour renderer with new width
     ui.renderer, _ = glamour.NewTermRenderer(
         glamour.WithAutoStyle(),
-        glamour.WithWordWrap(msg.Width-2), // Leave some margin
+        glamour.WithWordWrap(msg.Width-2),
     )
     return ui, nil
 }

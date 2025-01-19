@@ -16,6 +16,7 @@ type UI struct {
     loading   bool
     renderer  *glamour.TermRenderer
     width     int
+    ready     bool  // Add ready state
 }
 
 type Message struct {
@@ -30,7 +31,7 @@ func New(aiClient ai.Client) *UI {
 
     renderer, _ := glamour.NewTermRenderer(
         glamour.WithAutoStyle(),
-        glamour.WithWordWrap(0), // Will be set dynamically based on terminal width
+        glamour.WithWordWrap(0),
     )
 
     return &UI{
@@ -39,7 +40,8 @@ func New(aiClient ai.Client) *UI {
         renderer:  renderer,
         messages:  []Message{{Role: "system", Content: "Welcome to MyCliAI!\nAsk me to write a haiku or anything else!\n"}},
         cursor:    true,
-        width:     80, // Default width
+        width:     80,
+        ready:     false,
     }
 }
 
@@ -47,14 +49,16 @@ func (ui *UI) Start() error {
     p := tea.NewProgram(
         ui,
         tea.WithAltScreen(),
+        tea.WithMouseCellMotion(),
     )
     _, err := p.Run()
     return err
 }
 
+// Initialize the UI with proper screen setup
 func (ui *UI) Init() tea.Cmd {
     return tea.Batch(
-        ui.spinner.Tick,
         tea.EnterAltScreen,
+        tea.HideCursor,
     )
 }
