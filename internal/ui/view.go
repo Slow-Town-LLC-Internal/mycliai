@@ -14,8 +14,9 @@ func (ui *UI) View() string {
         width = 80
     }
 
-    // Account for terminal padding and styling characters
-    contentWidth := width - 32  // Increased padding margin significantly
+    // Much more conservative width calculation for UTF-8 text
+    // Account for terminal padding, styling characters, and wide UTF-8 chars
+    contentWidth := width - 40  // Increased padding significantly to handle UTF-8
 
     // Render messages
     for _, msg := range ui.messages {
