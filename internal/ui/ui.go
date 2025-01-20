@@ -1,6 +1,7 @@
 package ui
 
 import (
+    "os"
     "github.com/charmbracelet/bubbles/spinner"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/glamour"
@@ -34,6 +35,10 @@ func New(aiClient ai.Client) *UI {
         glamour.WithWordWrap(0),
     )
 
+    // Clear the screen before creating the UI
+    os.Stdout.WriteString("\033[H\033[2J")
+    os.Stdout.Sync()
+
     return &UI{
         aiClient:  aiClient,
         spinner:   s,
@@ -48,17 +53,16 @@ func New(aiClient ai.Client) *UI {
 func (ui *UI) Start() error {
     p := tea.NewProgram(
         ui,
-        tea.WithAltScreen(),      // Use alternate screen buffer
-        tea.WithMouseCellMotion(), // Enable mouse support
-        tea.WithInputTTY(),        // Ensure proper TTY input handling
+        tea.WithAltScreen(),
     )
     _, err := p.Run()
     return err
 }
 
 func (ui *UI) Init() tea.Cmd {
-    return tea.Sequence(
+    return tea.Batch(
         tea.EnterAltScreen,
+        tea.HideCursor,
         tea.ClearScreen,
     )
 }
