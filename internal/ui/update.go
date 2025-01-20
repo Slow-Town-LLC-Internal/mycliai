@@ -7,84 +7,81 @@ import (
 )
 
 func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    var cmd tea.Cmd
+    var cmds []tea.Cmd
 
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        return ui.handleKeyMsg(msg)
-    case tea.WindowSizeMsg:
-        return ui.handleWindowSize(msg)
-    case AIResponseMsg:
-        return ui.handleAIResponse(msg)
-    case spinner.TickMsg:
-        return ui.handleSpinnerTick(msg)
+    // Handle window size updates immediately
+    if wmsg, ok := msg.(tea.WindowSizeMsg); ok {
+        if !ui.ready {
+            ui.ready = true
+        }
+        ui.width = wmsg.Width
+        ui.renderer, _ = glamour.NewTermRenderer(
+            glamour.WithAutoStyle(),
+            glamour.WithWordWrap(wmsg.Width-2),
+        )
+        cmds = append(cmds, nil)
     }
 
-    return ui, cmd
-}
-
-func (ui *UI) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-    if ui.loading {
-        // Only process control characters when loading
-        if msg.Type == tea.KeyCtrlC {
-            return ui, tea.Quit
-        }
+    // Skip other updates until ready
+    if !ui.ready {
         return ui, nil
     }
 
-    switch msg.Type {
-    case tea.KeyCtrlC:
-        return ui, tea.Quit
-    case tea.KeyEnter:
-        if ui.input != "" {
-            ui.loading = true
-            ui.messages = append(ui.messages, Message{Role: "user", Content: ui.input})
-            ui.input = ""
-            return ui, tea.Batch(
-                ui.spinner.Tick,
-                ui.getAIResponse,
-            )
-        }
-    case tea.KeyBackspace, tea.KeyDelete:
-        if len(ui.input) > 0 {
-            ui.input = ui.input[:len(ui.input)-1]
-        }
-    case tea.KeySpace:
-        ui.input += " "
-    default:
-        // Only add printable ASCII characters
-        if len(msg.Runes) > 0 {
-            r := msg.Runes[0]
-            if r >= 32 && r <= 126 { // ASCII printable range
-                ui.input += string(r)
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        // Quick exit if loading
+        if ui.loading {
+            if msg.Type == tea.KeyCtrlD {
+                return ui, tea.Quit
             }
+            return ui, nil
+        }
+
+        // Handle input
+        switch msg.Type {
+        case tea.KeyCtrlD:
+            return ui, tea.Quit
+            
+        case tea.KeyEnter:
+            if ui.input != "" {
+                ui.loading = true
+                ui.messages = append(ui.messages, Message{Role: "user", Content: ui.input})
+                ui.input = ""
+                return ui, tea.Batch(
+                    ui.spinner.Tick,
+                    ui.getAIResponse,
+                )
+            }
+            
+        case tea.KeySpace:
+            ui.input += " "
+            
+        case tea.KeyBackspace, tea.KeyDelete:
+            if len(ui.input) > 0 {
+                ui.input = ui.input[:len(ui.input)-1]
+            }
+            
+        case tea.KeyEsc:
+            if ui.input != "" {
+                ui.input = ""
+            }
+
+        case tea.KeyRunes:
+            ui.input += string(msg.Runes)
+        }
+
+    case AIResponseMsg:
+        ui.loading = false
+        ui.messages = append(ui.messages, Message{Role: "assistant", Content: string(msg)})
+        cmds = append(cmds, nil)
+
+    case spinner.TickMsg:
+        if ui.loading {
+            var spinCmd tea.Cmd
+            ui.spinner, spinCmd = ui.spinner.Update(msg)
+            cmds = append(cmds, spinCmd)
         }
     }
 
-    return ui, nil
-}
-
-func (ui *UI) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
-    ui.width = msg.Width
-    // Update glamour renderer with new width
-    ui.renderer, _ = glamour.NewTermRenderer(
-        glamour.WithAutoStyle(),
-        glamour.WithWordWrap(msg.Width-2), // Leave some margin
-    )
-    return ui, nil
-}
-
-func (ui *UI) handleAIResponse(msg AIResponseMsg) (tea.Model, tea.Cmd) {
-    ui.loading = false
-    ui.messages = append(ui.messages, Message{Role: "assistant", Content: string(msg)})
-    return ui, nil
-}
-
-func (ui *UI) handleSpinnerTick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
-    if ui.loading {
-        var spinCmd tea.Cmd
-        ui.spinner, spinCmd = ui.spinner.Update(msg)
-        return ui, spinCmd
-    }
-    return ui, nil
+    return ui, tea.Batch(cmds...)
 }

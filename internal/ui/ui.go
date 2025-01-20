@@ -1,10 +1,12 @@
 package ui
 
 import (
+    "os"
     "github.com/charmbracelet/bubbles/spinner"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/glamour"
     "mycliai/internal/ai"
+    "mycliai/internal/ui/styles"
 )
 
 type UI struct {
@@ -16,6 +18,7 @@ type UI struct {
     loading   bool
     renderer  *glamour.TermRenderer
     width     int
+    ready     bool
 }
 
 type Message struct {
@@ -24,13 +27,19 @@ type Message struct {
 }
 
 func New(aiClient ai.Client) *UI {
+    // Hide cursor and clear screen immediately
+    os.Stdout.WriteString("\x1b[?25l")   // Hide cursor
+    os.Stdout.WriteString("\x1b[2J")     // Clear screen
+    os.Stdout.WriteString("\x1b[H")      // Move to home position
+    os.Stdout.Sync()
+
     s := spinner.New()
     s.Spinner = spinner.Dot
-    s.Style = Styles.Spinner
+    s.Style = styles.Spinner
 
     renderer, _ := glamour.NewTermRenderer(
         glamour.WithAutoStyle(),
-        glamour.WithWordWrap(0), // Will be set dynamically based on terminal width
+        glamour.WithWordWrap(0),
     )
 
     return &UI{
@@ -39,7 +48,8 @@ func New(aiClient ai.Client) *UI {
         renderer:  renderer,
         messages:  []Message{{Role: "system", Content: "Welcome to MyCliAI!\nAsk me to write a haiku or anything else!\n"}},
         cursor:    true,
-        width:     80, // Default width
+        width:     80,
+        ready:     false,
     }
 }
 
@@ -47,14 +57,22 @@ func (ui *UI) Start() error {
     p := tea.NewProgram(
         ui,
         tea.WithAltScreen(),
+        tea.WithInputTTY(),
     )
+
+    // Run the program
     _, err := p.Run()
     return err
 }
 
 func (ui *UI) Init() tea.Cmd {
     return tea.Batch(
-        ui.spinner.Tick,
         tea.EnterAltScreen,
+        tea.ClearScreen,
+        tea.HideCursor,
+        func() tea.Msg {
+            ui.ready = true
+            return nil
+        },
     )
 }
