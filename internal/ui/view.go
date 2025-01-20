@@ -15,7 +15,7 @@ func (ui *UI) View() string {
     }
 
     // Account for terminal padding and styling characters
-    contentWidth := width - 24  // Increased padding margin
+    contentWidth := width - 32  // Increased padding margin significantly
 
     // Render messages
     for _, msg := range ui.messages {
@@ -37,7 +37,7 @@ func (ui *UI) View() string {
     // Input area
     sb.WriteString(views.RenderInput(ui.input, contentWidth, ui.cursor, ui.loading))
 
-    // Footer
+    // Footer with extra padding
     sb.WriteString("\n\n")
     sb.WriteString(styles.Footer.Render("Press Ctrl+D to quit"))
 

@@ -1,7 +1,7 @@
 package ui
 
 import (
-    "fmt"
+    "os"
     "github.com/charmbracelet/bubbles/spinner"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/glamour"
@@ -27,9 +27,11 @@ type Message struct {
 }
 
 func New(aiClient ai.Client) *UI {
-    // Clear screen and reset cursor before creating UI
-    fmt.Print("\033[H\033[2J\033[3J")  // Clear screen and scrollback buffer
-    fmt.Print("\033[?25l")             // Hide cursor temporarily
+    // Hide cursor and clear screen immediately
+    os.Stdout.WriteString("\x1b[?25l")   // Hide cursor
+    os.Stdout.WriteString("\x1b[2J")     // Clear screen
+    os.Stdout.WriteString("\x1b[H")      // Move to home position
+    os.Stdout.Sync()
 
     s := spinner.New()
     s.Spinner = spinner.Dot
@@ -57,6 +59,8 @@ func (ui *UI) Start() error {
         tea.WithAltScreen(),
         tea.WithInputTTY(),
     )
+
+    // Run the program
     _, err := p.Run()
     return err
 }
@@ -65,9 +69,8 @@ func (ui *UI) Init() tea.Cmd {
     return tea.Batch(
         tea.EnterAltScreen,
         tea.ClearScreen,
-        tea.HideCursor,  // Hide cursor during initialization
+        tea.HideCursor,
         func() tea.Msg {
-            // Make sure we're fully initialized before accepting input
             ui.ready = true
             return nil
         },
