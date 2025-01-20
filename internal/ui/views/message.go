@@ -2,15 +2,13 @@ package views
 
 import (
     "strings"
-    "github.com/charmbracelet/lipgloss"
-    "github.com/muesli/reflow/indents"
     "github.com/charmbracelet/glamour"
+    "github.com/muesli/reflow/wordwrap"
     "mycliai/internal/ui/styles"
 )
 
 func RenderMessage(role, content string, width int, renderer *glamour.TermRenderer) string {
     var sb strings.Builder
-    textWidth := width - 16
 
     // Render prefix
     prefix := styles.You.Render("You:")
@@ -27,18 +25,18 @@ func RenderMessage(role, content string, width int, renderer *glamour.TermRender
         lines := strings.Split(content, "\n")
         for i, line := range lines {
             if strings.TrimSpace(line) != "" {
-                wrapped := lipgloss.WrapSoft(line, textWidth)
-                if i == 0 {
-                    lines[i] = wrapped
-                } else {
-                    lines[i] = indents.String("    "+wrapped, 4)
+                wrapped := wordwrap.String(line, width)
+                if i > 0 {
+                    // Add indentation for continuation lines
+                    wrapped = strings.ReplaceAll(wrapped, "\n", "\n    ")
                 }
+                lines[i] = wrapped
             }
         }
         rendered = strings.Join(lines, "\n")
     }
 
-    // Join prefix and content
+    // Join prefix and content with proper style and margin
     sb.WriteString(styles.Prompt.Render(prefix))
     sb.WriteString("\n")
     sb.WriteString(styles.Content.Render(rendered))
